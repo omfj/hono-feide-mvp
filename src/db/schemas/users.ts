@@ -1,6 +1,6 @@
 import { pgTable, text, primaryKey, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { sessions } from ".";
+import { accounts, sessions } from ".";
 
 export const users = pgTable(
   "user",
@@ -8,8 +8,6 @@ export const users = pgTable(
     id: text("id").notNull(),
     name: text("name"),
     email: text("email"),
-    provider: text("provider"),
-    providerId: text("provider_id"),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.id] }),
@@ -19,6 +17,7 @@ export const users = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
+  accounts: many(accounts),
 }));
 
 export type User = (typeof users)["$inferSelect"];

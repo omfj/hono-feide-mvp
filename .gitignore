@@ -2,3 +2,4 @@ node_modules
 .env*
 !.env.example
 postgres-data
+dist

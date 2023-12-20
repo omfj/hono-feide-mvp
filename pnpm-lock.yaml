@@ -10,7 +10,7 @@ dependencies:
     version: 1.3.2
   '@lucia-auth/adapter-drizzle':
     specifier: 1.0.0-beta.0
-    version: 1.0.0-beta.0(lucia@3.0.0-beta.11)
+    version: 1.0.0-beta.0(lucia@3.0.0-beta.12)
   arctic:
     specifier: ^0.10.0
     version: 0.10.0
@@ -21,8 +21,8 @@ dependencies:
     specifier: ^3.11.4
     version: 3.11.4
   lucia:
-    specifier: 3.0.0-beta.11
-    version: 3.0.0-beta.11
+    specifier: 3.0.0-beta.12
+    version: 3.0.0-beta.12
   oslo:
     specifier: ^0.24.0
     version: 0.24.0
@@ -739,12 +739,12 @@ packages:
     engines: {node: '>=18.14.1'}
     dev: false
 
-  /@lucia-auth/adapter-drizzle@1.0.0-beta.0(lucia@3.0.0-beta.11):
+  /@lucia-auth/adapter-drizzle@1.0.0-beta.0(lucia@3.0.0-beta.12):
     resolution: {integrity: sha512-L4e8zJATX1PbIvvSNQ/VwxrVebEZKtzUkPdFBFSpbVUuc7aa6yqMyHm2lI4cHCWT76pwlZgQmAiE9O2AyqlX/A==}
     peerDependencies:
       lucia: 3.0.0-beta.8
     dependencies:
-      lucia: 3.0.0-beta.11
+      lucia: 3.0.0-beta.12
     dev: false
 
   /@node-rs/argon2-android-arm-eabi@1.5.2:
@@ -1598,8 +1598,8 @@ packages:
       es5-ext: 0.10.62
     dev: true
 
-  /lucia@3.0.0-beta.11:
-    resolution: {integrity: sha512-OXZfnM4KifDjkTTG3ruihormyOcXBz6wjAWibAAlw42zWBXDsleFR34gwKBxxXBa+TodzuKy7rcg8FGOMwwSGA==}
+  /lucia@3.0.0-beta.12:
+    resolution: {integrity: sha512-BqazR0IVm5xfURR6G+mjcL77ttDHTdX+qWqaHP121fKIU27rYqUBTAxVYP3252W3gDblFmSYlnhxzkJzI+z/dw==}
     dependencies:
       oslo: 0.23.5
     dev: false

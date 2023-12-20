@@ -1,69 +1,15 @@
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import {
-  FEIDE_PROVIDER_ID,
-  feideAuth,
-  getFeideUser,
-} from "../../auth/providers/feide";
-import { OAuth2RequestError, generateState } from "arctic";
-import { serializeCookie } from "oslo/cookie";
-import { db } from "../../db/drizzle";
-import { and, eq } from "drizzle-orm";
 import { lucia } from "../../auth/lucia";
+import { lth, setEmptyCookie } from "../../auth/utils";
+import { generateState, OAuth2RequestError } from "arctic";
+import { and, eq } from "drizzle-orm";
 import { generateId } from "lucia";
-import { users } from "../../db/schemas";
+import { db } from "../../db/drizzle";
+import { accounts, users } from "../../db/schemas";
+import { feideAuth, getFeideUser } from "../../auth/providers/feide";
 
 const app = new Hono();
-
-app.get("/me", async (c) => {
-  const sessionId = getCookie(c, lucia.sessionCookieName);
-
-  if (!sessionId) {
-    return c.text("Not logged in", {
-      status: 401,
-    });
-  }
-
-  const { session, user } = await lucia.validateSession(sessionId);
-
-  if (session && session.fresh) {
-    const sessionCookie = lucia.createSessionCookie(session.id);
-    setCookie(c, sessionCookie.name, sessionCookie.value, {
-      domain: sessionCookie.attributes.domain,
-      httpOnly: sessionCookie.attributes.httpOnly,
-      maxAge: sessionCookie.attributes.maxAge,
-      path: sessionCookie.attributes.path,
-      sameSite:
-        sessionCookie.attributes.sameSite === "lax"
-          ? "Lax"
-          : sessionCookie.attributes.sameSite === "strict"
-          ? "Strict"
-          : "None",
-      expires: sessionCookie.attributes.expires,
-      secure: process.env.NODE_ENV === "production",
-    });
-  }
-
-  if (!session) {
-    const sessionCookie = lucia.createBlankSessionCookie();
-    setCookie(c, sessionCookie.name, sessionCookie.value, {
-      domain: sessionCookie.attributes.domain,
-      httpOnly: sessionCookie.attributes.httpOnly,
-      maxAge: sessionCookie.attributes.maxAge,
-      path: sessionCookie.attributes.path,
-      sameSite:
-        sessionCookie.attributes.sameSite === "lax"
-          ? "Lax"
-          : sessionCookie.attributes.sameSite === "strict"
-          ? "Strict"
-          : "None",
-      expires: sessionCookie.attributes.expires,
-      secure: process.env.NODE_ENV === "production",
-    });
-  }
-
-  return c.json(user);
-});
 
 app.get("/logout", async (c) => {
   const sessionId = getCookie(c, lucia.sessionCookieName);
@@ -72,13 +18,9 @@ app.get("/logout", async (c) => {
 
   await lucia.invalidateSession(sessionId);
 
-  setCookie(c, lucia.sessionCookieName, "", {
-    maxAge: 0,
-    path: "/",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-  });
-  throw c.redirect("/", 302);
+  setEmptyCookie(c, lucia.sessionCookieName);
+
+  return c.redirect("/", 302);
 });
 
 app.get("/feide", async (c) => {
@@ -111,63 +53,54 @@ app.get("/feide/callback", async (c) => {
   try {
     const tokens = await feideAuth.validateAuthorizationCode(code);
 
-    const feideUser = await getFeideUser(tokens.accessToken);
+    const providerUser = await getFeideUser(tokens.accessToken);
 
-    const existingUser = await db.query.users.findFirst({
-      where: (user) =>
+    const existingUser = await db
+      .select()
+      .from(users)
+      .leftJoin(accounts, eq(users.id, accounts.userId))
+      .where(
         and(
-          eq(user.providerId, feideUser.user.userid),
-          eq(user.provider, FEIDE_PROVIDER_ID)
-        ),
-    });
+          eq(accounts.provider, "feide"),
+          eq(accounts.providerAccountId, providerUser.id)
+        )
+      )
+      .then((res) => res[0] ?? null);
 
     if (existingUser) {
-      const session = await lucia.createSession(existingUser.id, {});
+      const session = await lucia.createSession(existingUser.user.id, {});
       const { name, value, attributes } = lucia.createSessionCookie(session.id);
 
-      setCookie(c, name, value, {
-        domain: attributes.domain,
-        httpOnly: attributes.httpOnly,
-        maxAge: attributes.maxAge,
-        path: attributes.path,
-        sameSite:
-          attributes.sameSite === "lax"
-            ? "Lax"
-            : attributes.sameSite === "strict"
-            ? "Strict"
-            : "None",
-        expires: attributes.expires,
-        secure: process.env.NODE_ENV === "production",
-      });
+      setCookie(c, name, value, lth(attributes));
       return c.redirect("/", 302);
     }
 
     const userId = generateId(15);
-    await db.insert(users).values({
-      id: userId,
-      name: feideUser.user.name,
-      email: feideUser.user.email,
-      provider: FEIDE_PROVIDER_ID,
-      providerId: feideUser.user.userid,
+
+    await db.transaction(async (tx) => {
+      await tx.insert(users).values({
+        id: userId,
+        name: providerUser.name,
+        email: providerUser.email,
+      });
+
+      await tx.insert(accounts).values({
+        provider: "feide",
+        providerAccountId: providerUser.id,
+        userId,
+        accessToken: tokens.accessToken,
+        refreshToken: null,
+        expiresAt: Math.floor(tokens.expiresAt),
+        scope: tokens.scope,
+        tokenType: tokens.tokenType,
+        idToken: tokens.idToken,
+      });
     });
 
     const session = await lucia.createSession(userId, {});
     const { name, attributes, value } = lucia.createSessionCookie(session.id);
 
-    setCookie(c, name, value, {
-      domain: attributes.domain,
-      httpOnly: attributes.httpOnly,
-      maxAge: attributes.maxAge,
-      path: attributes.path,
-      sameSite:
-        attributes.sameSite === "lax"
-          ? "Lax"
-          : attributes.sameSite === "strict"
-          ? "Strict"
-          : "None",
-      expires: attributes.expires,
-      secure: process.env.NODE_ENV === "production",
-    });
+    setCookie(c, name, value, lth(attributes));
 
     return c.redirect("/", 302);
   } catch (e) {

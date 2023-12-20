@@ -1,6 +1,5 @@
 import { baseURL } from "../../utils";
 import { Feide } from "./feide-provider";
-export const FEIDE_PROVIDER_ID = "feide";
 
 type FeideUser = {
   user: {
@@ -21,10 +20,21 @@ export const feideAuth = new Feide(
   }
 );
 
-export async function getFeideUser(accessToken: string) {
-  return (await fetch("https://auth.dataporten.no/userinfo", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  }).then((r) => r.json())) as FeideUser;
+export async function getFeideUser(
+  accessToken: string
+): Promise<{ id: string; email: string; name: string }> {
+  const feideUser: FeideUser = await fetch(
+    "https://auth.dataporten.no/userinfo",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  ).then((r) => r.json());
+
+  return {
+    id: feideUser.user.userid,
+    email: feideUser.user.email,
+    name: feideUser.user.name,
+  };
 }
